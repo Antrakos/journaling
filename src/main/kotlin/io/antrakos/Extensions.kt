@@ -1,5 +1,7 @@
 package io.antrakos
 
+import ratpack.guice.BindingsSpec
+import ratpack.guice.Guice
 import ratpack.handling.Chain
 import ratpack.handling.Context
 import ratpack.registry.Registry
@@ -28,11 +30,9 @@ fun serverOf(cb: KServerSpec.() -> Unit) = RatpackServer.of { KServerSpec(it).cb
 fun serverStart(cb: KServerSpec.() -> Unit) = RatpackServer.start { KServerSpec(it).cb() }
 
 class KChain(val delegate: Chain) : Chain by delegate {
-    fun fileSystem(path: String = "", cb: KChain.() -> Unit) =
-            delegate.fileSystem(path) { KChain(it).cb() }
+    fun fileSystem(path: String = "", cb: KChain.() -> Unit) = delegate.fileSystem(path) { KChain(it).cb() }
 
-    fun prefix(path: String = "", cb: KChain.() -> Unit) =
-            delegate.prefix(path) { KChain(it).cb() }
+    fun kPrefix(path: String = "", cb: KChain.() -> Unit) = delegate.prefix(path) { KChain(it).cb() }
 
     fun all(cb: Context.() -> Unit) = delegate.all { it.cb() }
     fun path(path: String = "", cb: Context.() -> Unit) = delegate.path(path) { it.cb() }
@@ -51,6 +51,7 @@ class KContext(val delegate: Context) : Context by delegate
 
 class KServerSpec(val delegate: RatpackServerSpec) : RatpackServerSpec by delegate {
     fun kServerConfig(cb: ServerConfigBuilder.() -> Unit) = delegate.serverConfig { it.cb() }
+    fun guiceRegistry(cb: BindingsSpec.() -> Unit) = delegate.registry(Guice.registry(cb))
     fun kRegistry(cb: RegistrySpec.() -> Unit) = delegate.registry(Registry.of(cb))
     fun kHandlers(cb: KChain.() -> Unit) = delegate.handlers { KChain(it).cb() }
 }
