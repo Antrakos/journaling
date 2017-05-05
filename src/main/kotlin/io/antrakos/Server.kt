@@ -48,13 +48,11 @@ object Server {
         serverStart {
             registryOf { it.add(ObjectMapper::class.java, kodein.instance()) }
             kHandlers {
-                prefix("record") {
-                    get("daily/:date") {
-                        val recordRepository = kodein.instance<RecordRepository>()
-                        val day = LocalDate.parse(pathTokens["date"])
-                        RxRatpack.promise(recordRepository.findWithin(day.atStartOfDay(), day.plusDays(1).atStartOfDay()))
-                                .then { render(json(it)) }
-                    }
+                get("record/daily/:date") {
+                    val recordRepository = kodein.instance<RecordRepository>()
+                    val day = LocalDate.parse(pathTokens["date"])
+                    RxRatpack.promise(recordRepository.findWithin(day.atStartOfDay(), day.plusDays(1).atStartOfDay()))
+                            .then { render(json(it)) }
                 }
                 post("check") {
                     val recordRepository = kodein.instance<RecordRepository>()
