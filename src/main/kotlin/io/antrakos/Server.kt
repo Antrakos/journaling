@@ -17,6 +17,7 @@ import org.bson.codecs.configuration.CodecRegistries
 import org.bson.codecs.configuration.CodecRegistry
 import ratpack.jackson.Jackson.json
 import ratpack.rx.RxRatpack
+import java.lang.IllegalArgumentException
 import java.time.LocalDate
 
 
@@ -54,10 +55,15 @@ object Server {
                     RxRatpack.promise(recordRepository.findWithin(day.atStartOfDay(), day.plusDays(1).atStartOfDay()))
                             .then { render(json(it)) }
                 }
-                post("check") {
-                    val recordRepository = kodein.instance<RecordRepository>()
-                    RxRatpack.promiseSingle(recordRepository.insert(Record()).toObservable())
-                            .then { render(json(it)) }
+                post("work/:status") {
+                    try {
+                        val status = Status.valueOf(pathTokens["status"].toString().toUpperCase())
+                        val recordRepository = kodein.instance<RecordRepository>()
+                        RxRatpack.promiseSingle(recordRepository.insert(Record(status)).toObservable())
+                                .then { render(json(it)) }
+                    } catch (ex: IllegalArgumentException) {
+                        clientError(400)
+                    }
                 }
                 get("hello") {
                     render("hello")
