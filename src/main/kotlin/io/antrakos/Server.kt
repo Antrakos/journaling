@@ -1,5 +1,6 @@
 package io.antrakos
 
+import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.github.salomonbrys.kodein.Kodein
@@ -26,7 +27,10 @@ object Server {
     @JvmStatic
     fun main(args: Array<String>) {
         val kodein = Kodein {
-            bind<ObjectMapper>() with singleton { ObjectMapper().registerKotlinModule() }
+            bind<ObjectMapper>() with singleton {
+                ObjectMapper().registerKotlinModule()
+                        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+            }
             bind<JacksonCodecProvider>() with singleton { JacksonCodecProvider(instance()) }
             bind<CodecRegistry>() with singleton {
                 CodecRegistries.fromRegistries(
