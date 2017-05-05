@@ -1,0 +1,34 @@
+group 'io.antrakos'
+version '1.0-SNAPSHOT'
+
+buildscript {
+    ext {
+        kotlin_version = '1.1.1'
+        ratpack_version = '1.4.5'
+    }
+
+    repositories {
+        mavenCentral()
+        jcenter()
+    }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "io.ratpack:ratpack-gradle:$ratpack_version"
+    }
+}
+
+apply plugin: 'kotlin'
+apply plugin: 'io.ratpack.ratpack-java'
+
+repositories {
+    mavenCentral()
+    maven { url "https://dl.bintray.com/ylemoigne/maven" }}
+
+dependencies {
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jre8:$kotlin_version"
+    compile ratpack.dependency('rx')
+    compile "com.fasterxml.jackson.module:jackson-module-kotlin:2.7.5"
+    compile 'org.mongodb:mongodb-driver-rx:1.4.0'
+    compile 'com.github.salomonbrys.kodein:kodein:3.4.1'
+    compile 'fr.javatic.mongo:mongo-jackson-codec:3.2.2__0.5'
+}
