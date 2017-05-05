@@ -27,8 +27,10 @@ repositories {
 dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jre8:$kotlin_version"
     compile ratpack.dependency('rx')
+    compile ratpack.dependency('pac4j')
+    compile 'commons-codec:commons-codec:1.10'
+    compile "org.pac4j:pac4j-http:1.8.8"
     compile "com.fasterxml.jackson.module:jackson-module-kotlin:2.7.5"
     compile 'org.mongodb:mongodb-driver-rx:1.4.0'
     compile 'com.github.salomonbrys.kodein:kodein:3.4.1'
-    compile 'fr.javatic.mongo:mongo-jackson-codec:3.2.2__0.5'
 }

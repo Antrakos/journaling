@@ -13,10 +13,19 @@ import com.mongodb.rx.client.MongoCollection
 import com.mongodb.rx.client.MongoDatabase
 import io.antrakos.repository.JacksonCodecProvider
 import io.antrakos.repository.impl.RecordRepository
+import io.antrakos.repository.impl.UserRepository
+import io.antrakos.security.BasicAuthenticator
 import org.bson.codecs.configuration.CodecRegistries
 import org.bson.codecs.configuration.CodecRegistry
+import org.pac4j.http.client.direct.DirectBasicAuthClient
+import org.pac4j.http.credentials.authenticator.UsernamePasswordAuthenticator
+import org.pac4j.http.credentials.password.BasicSaltedSha512PasswordEncoder
+import org.pac4j.http.credentials.password.PasswordEncoder
+import ratpack.jackson.Jackson.fromJson
 import ratpack.jackson.Jackson.json
+import ratpack.pac4j.RatpackPac4j
 import ratpack.rx.RxRatpack
+import ratpack.session.SessionModule
 import java.lang.IllegalArgumentException
 import java.time.LocalDate
 
@@ -42,13 +51,35 @@ object Server {
             bind<MongoClient>() with singleton { MongoClients.create() }
             bind<MongoDatabase>() with singleton { instance<MongoClient>().getDatabase("journaling").withCodecRegistry(instance()) }
             bind<MongoCollection<Record>>() with singleton { instance<MongoDatabase>().getCollection("record", Record::class.java) }
+            bind<MongoCollection<User>>() with singleton { instance<MongoDatabase>().getCollection("user", User::class.java) }
             bind<RecordRepository>() with singleton { RecordRepository(instance()) }
+            bind<UserRepository>() with singleton { UserRepository(instance()) }
+            bind<PasswordEncoder>() with singleton { BasicSaltedSha512PasswordEncoder("salt") }
+            bind<UsernamePasswordAuthenticator>() with singleton { BasicAuthenticator(instance(), instance()) }
         }
 
         RxRatpack.initialize();
         serverStart {
-            registryOf { it.add(ObjectMapper::class.java, kodein.instance()) }
+            guiceRegistry {
+                module(SessionModule::class.java)
+                add(ObjectMapper::class.java, kodein.instance())
+            }
             kHandlers {
+                all(RatpackPac4j.authenticator(DirectBasicAuthClient(kodein.instance())))
+                kPrefix("auth") {
+                    post("register") {
+                        val userRepository = kodein.instance<UserRepository>()
+                        val passwordEncoder = kodein.instance<PasswordEncoder>()
+                        RxRatpack.promiseSingle(
+                                RxRatpack.observe(parse(fromJson(User::class.java)))
+                                        .toSingle()
+                                        .map { it.copy(password = passwordEncoder.encode(it.password)) }
+                                        .flatMap(userRepository::insert)
+                                        .toObservable()
+                        ).then { render(json(it)) } //TODO: unique username
+                    }
+                }
+                all(RatpackPac4j.requireAuth(DirectBasicAuthClient::class.java))
                 get("record/daily/:date") {
                     val recordRepository = kodein.instance<RecordRepository>()
                     val day = LocalDate.parse(pathTokens["date"])
@@ -64,9 +95,6 @@ object Server {
                     } catch (ex: IllegalArgumentException) {
                         clientError(400)
                     }
-                }
-                get("hello") {
-                    render("hello")
                 }
             }
         }
