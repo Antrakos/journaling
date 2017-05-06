@@ -71,21 +71,29 @@ object Server {
                     post("register") {
                         val userRepository = kodein.instance<UserRepository>()
                         val passwordEncoder = kodein.instance<PasswordEncoder>()
-                        RxRatpack.promiseSingle(
-                                RxRatpack.observe(parse(fromJson(User::class.java)))
-                                        .toSingle()
-                                        .map { it.copy(password = passwordEncoder.encode(it.password)) }
-                                        .flatMap(userRepository::insert)
-                                        .toObservable()
-                        ).then { render(json(it)) } //TODO: unique username
+                        parse(fromJson(User::class.java))
+                                .toSingle()
+                                .map { it.copy(password = passwordEncoder.encode(it.password)) }
+                                .flatMap(userRepository::insert)
+                                .toPromise()
+                                .onError { clientError(400) }
+                                .then { render(json(it)) } //TODO: unique username
                     }
                 }
                 all(RatpackPac4j.requireAuth(DirectBasicAuthClient::class.java))
-                get("record/daily/:date") {
-                    val recordRepository = kodein.instance<RecordRepository>()
-                    val day = LocalDate.parse(pathTokens["date"])
-                    RxRatpack.promise(recordRepository.findWithin(day.atStartOfDay(), day.plusDays(1).atStartOfDay()))
-                            .then { render(json(it)) }
+                kPrefix("record") {
+                    get("daily/:date") {
+                        val userId = context[UserProfile::class.java].id
+                        val recordRepository = kodein.instance<RecordRepository>()
+                        val day = LocalDate.parse(pathTokens["date"])
+                        recordRepository.findWithinOfUser(day.atStartOfDay(), day.plusDays(1).atStartOfDay(), userId)
+                                .map { RecordDto(it.status, it.date()) }
+                                .toList()
+                                .toSingle()
+                                .map(::DayStatistics)
+                                .toPromise()
+                                .then { render(json(it)) }
+                    }
                 }
                 post("work/check-in") {
                     try {
@@ -93,7 +101,7 @@ object Server {
                         val recordRepository = kodein.instance<RecordRepository>()
                         recordRepository.findLastRecordOfUser(userId)
                                 .map(Record::status)
-                                .flatMap { recordRepository.insert(Record(!it, userId)).map { success -> it to success } }
+                                .flatMap { recordRepository.insert(Record(!it, userId)).map { success -> !it to success } }
                                 .toPromise()
                                 .then { render(json(mapOf("status" to it.first))) }
                     } catch (ex: IllegalArgumentException) {

@@ -16,8 +16,12 @@ import java.time.LocalDateTime
  * @author Taras Zubrei
  */
 class RecordRepository(collection: MongoCollection<Record>) : AbstractRepository<Record>(collection) {
-    fun findWithin(from: LocalDateTime, to: LocalDateTime): Observable<Record> = collection.find()
-            .filter(and(gte("_id", ObjectId(from.toDate()).toString()), lte("_id", ObjectId(to.toDate()).toString())))
+    fun findWithinOfUser(from: LocalDateTime, to: LocalDateTime, userId: String): Observable<Record> = collection.find()
+            .filter(and(
+                    gte("_id", ObjectId(from.toDate()).toString()),
+                    lte("_id", ObjectId(to.toDate()).toString()),
+                    eq("userId", userId)
+            ))
             .toObservable()
 
     fun findLastRecordOfUser(userId: String): Single<Record> = collection.find()

@@ -25,7 +25,7 @@ fun Date.toLocalDateTime(): LocalDateTime = this.toInstant().atZone(ZoneId.syste
 fun LocalDateTime.toDate(): Date = Date.from(this.atZone(ZoneId.systemDefault()).toInstant())
 
 fun <T> Single<T>.toPromise(): Promise<T> = RxRatpack.promiseSingle(this.toObservable())
-fun <T> Observable<T>.toPromise(): Promise<T> = RxRatpack.promiseSingle(this)
+fun <T> Observable<T>.toPromise(): Promise<List<T>> = RxRatpack.promise(this)
 fun <T> Promise<T>.toSingle(): Single<T> = RxRatpack.observe(this).toSingle()
 fun <T> Promise<T>.toObservable(): Observable<T> = RxRatpack.observe(this)
 /*
