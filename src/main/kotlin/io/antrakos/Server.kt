@@ -17,6 +17,7 @@ import io.antrakos.repository.impl.UserRepository
 import io.antrakos.security.BasicAuthenticator
 import org.bson.codecs.configuration.CodecRegistries
 import org.bson.codecs.configuration.CodecRegistry
+import org.pac4j.core.profile.UserProfile
 import org.pac4j.http.client.direct.DirectBasicAuthClient
 import org.pac4j.http.credentials.authenticator.UsernamePasswordAuthenticator
 import org.pac4j.http.credentials.password.BasicSaltedSha512PasswordEncoder
@@ -86,12 +87,15 @@ object Server {
                     RxRatpack.promise(recordRepository.findWithin(day.atStartOfDay(), day.plusDays(1).atStartOfDay()))
                             .then { render(json(it)) }
                 }
-                post("work/:status") {
+                post("work/check-in") {
                     try {
-                        val status = Status.valueOf(pathTokens["status"].toString().toUpperCase())
+                        val userId = context[UserProfile::class.java].id
                         val recordRepository = kodein.instance<RecordRepository>()
-                        RxRatpack.promiseSingle(recordRepository.insert(Record(status)).toObservable())
-                                .then { render(json(it)) }
+                        recordRepository.findLastRecordOfUser(userId)
+                                .map(Record::status)
+                                .flatMap { recordRepository.insert(Record(!it, userId)).map { success -> it to success } }
+                                .toPromise()
+                                .then { render(json(mapOf("status" to it.first))) }
                     } catch (ex: IllegalArgumentException) {
                         clientError(400)
                     }

@@ -1,14 +1,18 @@
 package io.antrakos
 
+import ratpack.exec.Promise
 import ratpack.guice.BindingsSpec
 import ratpack.guice.Guice
 import ratpack.handling.Chain
 import ratpack.handling.Context
 import ratpack.registry.Registry
 import ratpack.registry.RegistrySpec
+import ratpack.rx.RxRatpack
 import ratpack.server.RatpackServer
 import ratpack.server.RatpackServerSpec
 import ratpack.server.ServerConfigBuilder
+import rx.Observable
+import rx.Single
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.util.*
@@ -20,6 +24,10 @@ fun Date.toLocalDateTime(): LocalDateTime = this.toInstant().atZone(ZoneId.syste
 
 fun LocalDateTime.toDate(): Date = Date.from(this.atZone(ZoneId.systemDefault()).toInstant())
 
+fun <T> Single<T>.toPromise(): Promise<T> = RxRatpack.promiseSingle(this.toObservable())
+fun <T> Observable<T>.toPromise(): Promise<T> = RxRatpack.promiseSingle(this)
+fun <T> Promise<T>.toSingle(): Single<T> = RxRatpack.observe(this).toSingle()
+fun <T> Promise<T>.toObservable(): Observable<T> = RxRatpack.observe(this)
 /*
  * Helper functions to make the example more Kotlin like.
  */
