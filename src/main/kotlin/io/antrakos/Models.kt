@@ -14,9 +14,11 @@ class Record(val status: Status, val userId: String) : Entity()
 data class User(val username: String, val password: String) : Entity()
 data class RecordDto(val status: Status, val time: LocalDateTime)
 data class Period(val start: LocalDateTime, val end: LocalDateTime?)
-data class DayStatistics(val time: Duration, val hours: BooleanArray) {
-    constructor(records: List<RecordDto>) :
-            this(calculateDuration(fillInGaps(records)), markHours(fillInGaps(records)))
+data class DayStatistics(val time: Duration, val hours: BooleanArray, val day: LocalDate) {
+    constructor(records: List<RecordDto>, day: LocalDate) :
+            this(calculateDuration(fillInGaps(records)), markHours(fillInGaps(records)), day)
+
+    constructor(data: Pair<List<RecordDto>, LocalDate>) : this(data.first, data.second)
 
     companion object {
         fun fillInGaps(records: List<RecordDto>): List<RecordDto> {

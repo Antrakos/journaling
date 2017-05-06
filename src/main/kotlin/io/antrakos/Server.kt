@@ -90,7 +90,19 @@ object Server {
                                 .map { RecordDto(it.status, it.date()) }
                                 .toList()
                                 .toSingle()
+                                .map { it to day }
                                 .map(::DayStatistics)
+                                .toPromise()
+                                .then { render(json(it)) }
+                    }
+                    get("monthly/:month") {
+                        val userId = context[UserProfile::class.java].id
+                        val recordRepository = kodein.instance<RecordRepository>()
+                        val month = pathTokens["month"]!!.toInt()
+                        recordRepository.findWithinMonthOfUserGropedByDay(LocalDate.now().year, month, userId)
+                                .flatMap { pair -> pair.map { RecordDto(it.status, it.date()) }.toList().map { it to LocalDate.of(LocalDate.now().year, month, pair.key) }.map(::DayStatistics) }
+                                .toMap { it.day.dayOfMonth } //TODO: create DTO instead with some general monthly statistics
+                                .toSingle()
                                 .toPromise()
                                 .then { render(json(it)) }
                     }
