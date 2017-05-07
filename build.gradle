@@ -30,7 +30,7 @@ dependencies {
     compile ratpack.dependency('pac4j')
     compile 'commons-codec:commons-codec:1.10'
     compile "org.pac4j:pac4j-http:1.8.8"
-    compile "com.fasterxml.jackson.module:jackson-module-kotlin:2.7.5" //TODO: move Jackson to 2.8.7
+    compile "com.fasterxml.jackson.module:jackson-module-kotlin:2.8.7"
     compile 'org.mongodb:mongodb-driver-rx:1.4.0'
     compile 'com.github.salomonbrys.kodein:kodein:3.4.1'
 }
