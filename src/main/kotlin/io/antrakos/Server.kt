@@ -2,7 +2,7 @@ package io.antrakos
 
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import com.fasterxml.jackson.databind.SerializationFeature
 import com.github.salomonbrys.kodein.Kodein
 import com.github.salomonbrys.kodein.bind
 import com.github.salomonbrys.kodein.instance
@@ -39,8 +39,9 @@ object Server {
     fun main(args: Array<String>) {
         val kodein = Kodein {
             bind<ObjectMapper>() with singleton {
-                ObjectMapper().registerKotlinModule()
+                ObjectMapper().findAndRegisterModules()
                         .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                        .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
             }
             bind<JacksonCodecProvider>() with singleton { JacksonCodecProvider(instance()) }
             bind<CodecRegistry>() with singleton {
@@ -90,6 +91,7 @@ object Server {
                                 .map { RecordDto(it.status, it.date()) }
                                 .toList()
                                 .toSingle()
+                                .map { DayStatistics.fillInGaps(it) }
                                 .map { it to day }
                                 .map(::DayStatistics)
                                 .toPromise()
@@ -100,7 +102,7 @@ object Server {
                         val recordRepository = kodein.instance<RecordRepository>()
                         val month = pathTokens["month"]!!.toInt()
                         recordRepository.findWithinMonthOfUserGropedByDay(LocalDate.now().year, month, userId)
-                                .flatMap { pair -> pair.map { RecordDto(it.status, it.date()) }.toList().map { it to LocalDate.of(LocalDate.now().year, month, pair.key) }.map(::DayStatistics) }
+                                .flatMap { pair -> pair.map { RecordDto(it.status, it.date()) }.toList().map { DayStatistics.fillInGaps(it) }.map { it to LocalDate.of(LocalDate.now().year, month, pair.key) }.map(::DayStatistics) }
                                 .toMap { it.day.dayOfMonth } //TODO: create DTO instead with some general monthly statistics
                                 .toSingle()
                                 .toPromise()
