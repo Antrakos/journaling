@@ -40,6 +40,6 @@ class RecordRepository(collection: MongoCollection<Record>) : AbstractRepository
             .filter(eq("userId", userId))
             .sort(Sorts.descending("_id"))
             .first()
-            .firstOrDefault(Record(Status.START, userId))
+            .firstOrDefault(Record(Status.STOP, userId))
             .toSingle()
 }
