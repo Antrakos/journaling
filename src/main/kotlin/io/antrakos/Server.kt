@@ -114,7 +114,9 @@ object Server {
                         val month = pathTokens["month"]!!.toInt()
                         recordRepository.findWithinMonthOfUserGropedByDay(LocalDate.now().year, month, userId)
                                 .flatMap { pair -> pair.map { RecordDto(it.status, it.date()) }.toList().map { DayStatistics.fillInGaps(it) }.map { it to LocalDate.of(LocalDate.now().year, month, pair.key) }.map(::DayStatistics) }
-                                .toMap { it.day.dayOfMonth } //TODO: create DTO instead with some general monthly statistics
+                                .toList()
+                                .map { LocalDate.of(LocalDate.now().year, month, 1) to it }
+                                .map(::MonthStatistics)
                                 .toSingle()
                                 .toPromise()
                                 .then { render(json(it)) }

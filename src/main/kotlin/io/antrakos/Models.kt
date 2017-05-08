@@ -1,10 +1,9 @@
 package io.antrakos
 
 import org.bson.types.ObjectId
-import java.time.Duration
-import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.LocalTime
+import java.time.*
+import java.time.temporal.ChronoUnit
+import java.util.stream.Stream
 
 /**
  * @author Taras Zubrei
@@ -68,6 +67,26 @@ data class DayStatistics(val time: Duration, val hours: BooleanArray, val day: L
                     .map { records[it] to records[it + 1] }
                     .map { Duration.between(it.first.time, it.second.time) }
                     .reduce(Duration::plus)
+        }
+    }
+}
+
+data class MonthStatistics(val hours: Double, val totalhours: Long, val days: Array<DayStatistics?>) {
+    constructor(month: LocalDate, days: List<DayStatistics>) : this(sumHours(days), maxWorkedHours(month), mapToArray(days, month))
+    constructor(data: Pair<LocalDate, List<DayStatistics>>) : this(data.first, data.second)
+
+    companion object {
+        fun sumHours(days: List<DayStatistics>) = days.sumByDouble { it.time.toHours() + it.time.toMinutes() / 60.0 }
+
+        fun maxWorkedHours(month: LocalDate) = Stream.iterate(month.withDayOfMonth(1), { it.plusDays(1) })
+                .limit(month.withDayOfMonth(1).until(month.withDayOfMonth(month.lengthOfMonth()), ChronoUnit.DAYS))
+                .filter { it.dayOfWeek !in listOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) }
+                .count() * 24
+
+        fun mapToArray(days: List<DayStatistics>, month: LocalDate): Array<DayStatistics?> {
+            val array = Array<DayStatistics?>(month.lengthOfMonth(), { null })
+            days.forEach { array[it.day.dayOfMonth - 1] = it }
+            return array
         }
     }
 }
