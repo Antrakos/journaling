@@ -22,6 +22,7 @@ import org.pac4j.http.client.direct.DirectBasicAuthClient
 import org.pac4j.http.credentials.authenticator.UsernamePasswordAuthenticator
 import org.pac4j.http.credentials.password.BasicSaltedSha512PasswordEncoder
 import org.pac4j.http.credentials.password.PasswordEncoder
+import ratpack.handling.RequestLogger
 import ratpack.jackson.Jackson.fromJson
 import ratpack.jackson.Jackson.json
 import ratpack.pac4j.RatpackPac4j
@@ -67,6 +68,7 @@ object Server {
                 add(ObjectMapper::class.java, kodein.instance())
             }
             kHandlers {
+                all(RequestLogger.ncsa())
                 all(RatpackPac4j.authenticator(DirectBasicAuthClient(kodein.instance())))
                 kPrefix("auth") {
                     post("register") {

@@ -22,7 +22,7 @@ apply plugin: 'io.ratpack.ratpack-java'
 
 repositories {
     mavenCentral()
-    maven { url "https://dl.bintray.com/ylemoigne/maven" }}
+}
 
 dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jre8:$kotlin_version"
@@ -33,4 +33,5 @@ dependencies {
     compile "com.fasterxml.jackson.module:jackson-module-kotlin:2.8.7"
     compile 'org.mongodb:mongodb-driver-rx:1.4.0'
     compile 'com.github.salomonbrys.kodein:kodein:3.4.1'
+    compile 'ch.qos.logback:logback-classic:1.2.3'
 }
