@@ -22,14 +22,16 @@ import org.pac4j.http.client.direct.DirectBasicAuthClient
 import org.pac4j.http.credentials.authenticator.UsernamePasswordAuthenticator
 import org.pac4j.http.credentials.password.BasicSaltedSha512PasswordEncoder
 import org.pac4j.http.credentials.password.PasswordEncoder
+import ratpack.error.ClientErrorHandler
+import ratpack.error.ServerErrorHandler
 import ratpack.handling.RequestLogger
 import ratpack.jackson.Jackson.fromJson
 import ratpack.jackson.Jackson.json
 import ratpack.pac4j.RatpackPac4j
 import ratpack.rx.RxRatpack
 import ratpack.session.SessionModule
-import java.lang.IllegalArgumentException
 import java.time.LocalDate
+import java.util.*
 
 
 /**
@@ -59,13 +61,21 @@ object Server {
             bind<UserRepository>() with singleton { UserRepository(instance()) }
             bind<PasswordEncoder>() with singleton { BasicSaltedSha512PasswordEncoder("salt") }
             bind<UsernamePasswordAuthenticator>() with singleton { BasicAuthenticator(instance(), instance()) }
+            bind<ResourceBundle>() with singleton { ResourceBundle.getBundle("messages", Locale.ENGLISH) }
+            bind<ClientErrorHandler>() with singleton { io.antrakos.exception.ClientErrorHandler(instance()) }
+            bind<ServerErrorHandler>() with singleton { io.antrakos.exception.ServerErrorHandler() }
         }
 
         RxRatpack.initialize();
         serverStart {
+            kServerConfig {
+                env()
+            }
             guiceRegistry {
                 module(SessionModule::class.java)
-                add(ObjectMapper::class.java, kodein.instance())
+                bindInstance(ObjectMapper::class.java, kodein.instance())
+                bindInstance(ClientErrorHandler::class.java, kodein.instance())
+                bindInstance(ServerErrorHandler::class.java, kodein.instance())
             }
             kHandlers {
                 all(RequestLogger.ncsa())
@@ -79,7 +89,6 @@ object Server {
                                 .map { it.copy(password = passwordEncoder.encode(it.password)) }
                                 .flatMap(userRepository::insert)
                                 .toPromise()
-                                .onError { clientError(400) }
                                 .then { render(json(it)) } //TODO: unique username
                     }
                 }
@@ -112,17 +121,13 @@ object Server {
                     }
                 }
                 post("work/check-in") {
-                    try {
-                        val userId = context[UserProfile::class.java].id
-                        val recordRepository = kodein.instance<RecordRepository>()
-                        recordRepository.findLastRecordOfUser(userId)
-                                .map(Record::status)
-                                .flatMap { recordRepository.insert(Record(!it, userId)).map { success -> !it to success } }
-                                .toPromise()
-                                .then { render(json(mapOf("status" to it.first))) }
-                    } catch (ex: IllegalArgumentException) {
-                        clientError(400)
-                    }
+                    val userId = context[UserProfile::class.java].id
+                    val recordRepository = kodein.instance<RecordRepository>()
+                    recordRepository.findLastRecordOfUser(userId)
+                            .map(Record::status)
+                            .flatMap { status -> recordRepository.insert(Record(!status, userId)).map { status } }
+                            .toPromise()
+                            .then { render(json(mapOf("status" to it))) }
                 }
             }
         }
