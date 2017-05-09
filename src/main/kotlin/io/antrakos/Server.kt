@@ -7,10 +7,14 @@ import com.github.salomonbrys.kodein.Kodein
 import com.github.salomonbrys.kodein.bind
 import com.github.salomonbrys.kodein.instance
 import com.github.salomonbrys.kodein.singleton
+import com.mongodb.MongoWriteException
+import com.mongodb.client.model.IndexOptions
+import com.mongodb.client.model.Indexes
 import com.mongodb.rx.client.MongoClient
 import com.mongodb.rx.client.MongoClients
 import com.mongodb.rx.client.MongoCollection
 import com.mongodb.rx.client.MongoDatabase
+import io.antrakos.exception.Error
 import io.antrakos.repository.JacksonCodecProvider
 import io.antrakos.repository.impl.RecordRepository
 import io.antrakos.repository.impl.UserRepository
@@ -56,7 +60,7 @@ object Server {
             bind<MongoClient>() with singleton { MongoClients.create() }
             bind<MongoDatabase>() with singleton { instance<MongoClient>().getDatabase("journaling").withCodecRegistry(instance()) }
             bind<MongoCollection<Record>>() with singleton { instance<MongoDatabase>().getCollection("record", Record::class.java) }
-            bind<MongoCollection<User>>() with singleton { instance<MongoDatabase>().getCollection("user", User::class.java) }
+            bind<MongoCollection<User>>() with singleton { instance<MongoDatabase>().getCollection("user", User::class.java).apply { createIndex(Indexes.ascending("username"), IndexOptions().unique(true)).toBlocking().subscribe() } }
             bind<RecordRepository>() with singleton { RecordRepository(instance()) }
             bind<UserRepository>() with singleton { UserRepository(instance()) }
             bind<PasswordEncoder>() with singleton { BasicSaltedSha512PasswordEncoder("salt") }
@@ -68,35 +72,41 @@ object Server {
 
         RxRatpack.initialize();
         serverStart {
-            kServerConfig {
+            ServerConfig {
                 env()
             }
-            guiceRegistry {
+            GuiceRegistry {
                 module(SessionModule::class.java)
+                bindInstance(Kodein::class.java, kodein)
                 bindInstance(ObjectMapper::class.java, kodein.instance())
                 bindInstance(ClientErrorHandler::class.java, kodein.instance())
                 bindInstance(ServerErrorHandler::class.java, kodein.instance())
             }
-            kHandlers {
+            Handlers {
                 all(RequestLogger.ncsa())
                 all(RatpackPac4j.authenticator(DirectBasicAuthClient(kodein.instance())))
-                kPrefix("auth") {
-                    post("register") {
-                        val userRepository = kodein.instance<UserRepository>()
-                        val passwordEncoder = kodein.instance<PasswordEncoder>()
+                Prefix("auth") {
+                    Post("register") {
+                        val userRepository = instance<UserRepository>()
+                        val passwordEncoder = instance<PasswordEncoder>()
                         parse(fromJson(User::class.java))
                                 .toSingle()
                                 .map { it.copy(password = passwordEncoder.encode(it.password)) }
                                 .flatMap(userRepository::insert)
                                 .toPromise()
-                                .then { render(json(it)) } //TODO: unique username
+                                .onError {
+                                    when (it) {
+                                        is MongoWriteException -> ClientError(Error.DUPLICATE_USERNAME)
+                                    }
+                                }
+                                .then { render(json(it)) }
                     }
                 }
                 all(RatpackPac4j.requireAuth(DirectBasicAuthClient::class.java))
-                kPrefix("record") {
-                    get("daily/:date") {
-                        val userId = context[UserProfile::class.java].id
-                        val recordRepository = kodein.instance<RecordRepository>()
+                Prefix("record") {
+                    Get("daily/:date") {
+                        val userId = instance<UserProfile>().id
+                        val recordRepository = instance<RecordRepository>()
                         val day = LocalDate.parse(pathTokens["date"])
                         recordRepository.findWithinOfUser(day.atStartOfDay(), day.plusDays(1).atStartOfDay(), userId)
                                 .map { RecordDto(it.status, it.date()) }
@@ -108,9 +118,9 @@ object Server {
                                 .toPromise()
                                 .then { render(json(it)) }
                     }
-                    get("monthly/:month") {
-                        val userId = context[UserProfile::class.java].id
-                        val recordRepository = kodein.instance<RecordRepository>()
+                    Get("monthly/:month") {
+                        val userId = instance<UserProfile>().id
+                        val recordRepository = instance<RecordRepository>()
                         val month = pathTokens["month"]!!.toInt()
                         recordRepository.findWithinMonthOfUserGropedByDay(LocalDate.now().year, month, userId)
                                 .flatMap { pair -> pair.map { RecordDto(it.status, it.date()) }.toList().map { DayStatistics.fillInGaps(it) }.map { it to LocalDate.of(LocalDate.now().year, month, pair.key) }.map(::DayStatistics) }
@@ -122,9 +132,9 @@ object Server {
                                 .then { render(json(it)) }
                     }
                 }
-                post("work/check-in") {
-                    val userId = context[UserProfile::class.java].id
-                    val recordRepository = kodein.instance<RecordRepository>()
+                Post("work/check-in") {
+                    val userId = instance<UserProfile>().id
+                    val recordRepository = instance<RecordRepository>()
                     recordRepository.findLastRecordOfUser(userId)
                             .map(Record::status)
                             .flatMap { status -> recordRepository.insert(Record(!status, userId)).map { status } }
