@@ -1,9 +1,9 @@
 package io.antrakos
 
 import org.bson.types.ObjectId
-import java.time.*
-import java.time.temporal.ChronoUnit
-import java.util.stream.Stream
+import java.time.Duration
+import java.time.LocalDate
+import java.time.LocalDateTime
 
 /**
  * @author Taras Zubrei
@@ -12,84 +12,8 @@ class Record(val status: Status, val userId: String) : Entity()
 
 data class User(val username: String, val password: String) : Entity()
 data class RecordDto(val status: Status, val time: LocalDateTime)
-data class Period(val start: LocalDateTime, val end: LocalDateTime?)
-data class DayStatistics(val time: Duration, val hours: BooleanArray, val day: LocalDate) {
-    constructor(records: List<RecordDto>, day: LocalDate) :
-            this(calculateDuration(records), markHours(records), day)
-
-    constructor(data: Pair<List<RecordDto>, LocalDate>) : this(data.first, data.second)
-
-    companion object {
-        fun fillInGaps(records: List<RecordDto>): List<RecordDto> {
-            if (records.isEmpty())
-                return mutableListOf()
-            val list: MutableList<RecordDto> = records.toMutableList()
-            if (list[0].status == Status.STOP)
-                list.add(0, RecordDto(Status.START, list[0].time.toLocalDate().atStartOfDay()))
-            if (list.last().status == Status.START)
-                if (!list.last().time.toLocalDate().isEqual(LocalDate.now()))
-                    list.add(RecordDto(Status.STOP, list.last().time.toLocalDate().plusDays(1).atStartOfDay()))
-                else
-                    list.add(RecordDto(Status.STOP, LocalDateTime.now()))
-            return list.toList()
-        }
-
-        fun markHours(records: List<RecordDto>): BooleanArray {
-            val hours: BooleanArray = BooleanArray(24)
-            (0..records.lastIndex).asSequence()
-                    .filter { it % 2 == 0 }
-                    .map { records[it] to records[it + 1] }
-                    .forEach {
-                        val start = it.first.time.hour
-                        val end = if (it.second.time.dayOfYear == it.first.time.dayOfYear) it.second.time.hour else 23
-                        if (start == end) {
-                            if (Duration.between(it.first.time, it.second.time).toMinutes() >= 30)
-                                hours[start] = true
-                        } else {
-                            if (Duration.between(it.first.time, LocalDateTime.of(it.first.time.toLocalDate(), LocalTime.of(it.first.time.hour + 1, 0))).toMinutes() >= 30)
-                                hours[it.first.time.hour] = true
-                            if (it.second.time.dayOfYear != it.first.time.dayOfYear)
-                                hours[end] = true
-                            if (Duration.between(LocalDateTime.of(it.second.time.toLocalDate(), LocalTime.of(it.second.time.hour, 0)), it.second.time).toMinutes() >= 30)
-                                hours[it.second.time.hour] = true
-                            if (start + 1 <= end - 1)
-                                (start + 1..end - 1).forEach { hours[it] = true }
-                        }
-                    }
-            return hours
-        }
-
-        fun calculateDuration(records: List<RecordDto>): Duration {
-            if (records.isEmpty())
-                return Duration.ZERO
-            return (0..records.lastIndex).asSequence()
-                    .filter { it % 2 == 0 }
-                    .map { records[it] to records[it + 1] }
-                    .map { Duration.between(it.first.time, it.second.time) }
-                    .reduce(Duration::plus)
-        }
-    }
-}
-
-data class MonthStatistics(val hours: Double, val totalhours: Long, val days: Array<DayStatistics?>) {
-    constructor(month: LocalDate, days: List<DayStatistics>) : this(sumHours(days), maxWorkedHours(month), mapToArray(days, month))
-    constructor(data: Pair<LocalDate, List<DayStatistics>>) : this(data.first, data.second)
-
-    companion object {
-        fun sumHours(days: List<DayStatistics>) = days.sumByDouble { it.time.toHours() + it.time.toMinutes() / 60.0 }
-
-        fun maxWorkedHours(month: LocalDate) = Stream.iterate(month.withDayOfMonth(1), { it.plusDays(1) })
-                .limit(month.withDayOfMonth(1).until(month.withDayOfMonth(month.lengthOfMonth()), ChronoUnit.DAYS))
-                .filter { it.dayOfWeek !in listOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) }
-                .count() * 24
-
-        fun mapToArray(days: List<DayStatistics>, month: LocalDate): Array<DayStatistics?> {
-            val array = Array<DayStatistics?>(month.lengthOfMonth(), { null })
-            days.forEach { array[it.day.dayOfMonth - 1] = it }
-            return array
-        }
-    }
-}
+data class DayStatistics(val time: Duration, val hours: BooleanArray, val day: LocalDate)
+data class MonthStatistics(val hours: Double, val totalHours: Long, val days: Array<DayStatistics>)
 
 fun Record.date(): LocalDateTime = ObjectId(this._id).date.toLocalDateTime()
 enum class Status {

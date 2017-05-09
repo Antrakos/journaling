@@ -19,6 +19,10 @@ import io.antrakos.repository.JacksonCodecProvider
 import io.antrakos.repository.impl.RecordRepository
 import io.antrakos.repository.impl.UserRepository
 import io.antrakos.security.BasicAuthenticator
+import io.antrakos.service.AuthenticationService
+import io.antrakos.service.DayStatisticsService
+import io.antrakos.service.MonthStatisticsService
+import io.antrakos.service.WorkService
 import org.bson.codecs.configuration.CodecRegistries
 import org.bson.codecs.configuration.CodecRegistry
 import org.pac4j.core.profile.UserProfile
@@ -68,6 +72,10 @@ object Server {
             bind<ResourceBundle>() with singleton { ResourceBundle.getBundle("messages", Locale.ENGLISH) }
             bind<ClientErrorHandler>() with singleton { io.antrakos.exception.ClientErrorHandler(instance()) }
             bind<ServerErrorHandler>() with singleton { io.antrakos.exception.ServerErrorHandler() }
+            bind<DayStatisticsService>() with singleton { DayStatisticsService(instance()) }
+            bind<MonthStatisticsService>() with singleton { MonthStatisticsService(instance()) }
+            bind<AuthenticationService>() with singleton { AuthenticationService(instance(), instance()) }
+            bind<WorkService>() with singleton { WorkService(instance()) }
         }
 
         RxRatpack.initialize();
@@ -87,12 +95,8 @@ object Server {
                 all(RatpackPac4j.authenticator(DirectBasicAuthClient(kodein.instance())))
                 Prefix("auth") {
                     Post("register") {
-                        val userRepository = instance<UserRepository>()
-                        val passwordEncoder = instance<PasswordEncoder>()
-                        parse(fromJson(User::class.java))
-                                .toSingle()
-                                .map { it.copy(password = passwordEncoder.encode(it.password)) }
-                                .flatMap(userRepository::insert)
+                        instance<AuthenticationService>()
+                                .register(parse(fromJson(User::class.java)).toSingle())
                                 .toPromise()
                                 .onError {
                                     when (it) {
@@ -105,39 +109,21 @@ object Server {
                 all(RatpackPac4j.requireAuth(DirectBasicAuthClient::class.java))
                 Prefix("record") {
                     Get("daily/:date") {
-                        val userId = instance<UserProfile>().id
-                        val recordRepository = instance<RecordRepository>()
-                        val day = LocalDate.parse(pathTokens["date"])
-                        recordRepository.findWithinOfUser(day.atStartOfDay(), day.plusDays(1).atStartOfDay(), userId)
-                                .map { RecordDto(it.status, it.date()) }
-                                .toList()
-                                .toSingle()
-                                .map { DayStatistics.fillInGaps(it) }
-                                .map { it to day }
-                                .map(::DayStatistics)
+                        instance<DayStatisticsService>()
+                                .get(LocalDate.parse(pathTokens["date"]), instance<UserProfile>().id)
                                 .toPromise()
                                 .then { render(json(it)) }
                     }
                     Get("monthly/:month") {
-                        val userId = instance<UserProfile>().id
-                        val recordRepository = instance<RecordRepository>()
-                        val month = pathTokens["month"]!!.toInt()
-                        recordRepository.findWithinMonthOfUserGropedByDay(LocalDate.now().year, month, userId)
-                                .flatMap { pair -> pair.map { RecordDto(it.status, it.date()) }.toList().map { DayStatistics.fillInGaps(it) }.map { it to LocalDate.of(LocalDate.now().year, month, pair.key) }.map(::DayStatistics) }
-                                .toList()
-                                .map { LocalDate.of(LocalDate.now().year, month, 1) to it }
-                                .map(::MonthStatistics)
-                                .toSingle()
+                        instance<MonthStatisticsService>()
+                                .get(pathTokens["month"]!!.toInt(), instance<UserProfile>().id)
                                 .toPromise()
                                 .then { render(json(it)) }
                     }
                 }
                 Post("work/check-in") {
-                    val userId = instance<UserProfile>().id
-                    val recordRepository = instance<RecordRepository>()
-                    recordRepository.findLastRecordOfUser(userId)
-                            .map(Record::status)
-                            .flatMap { status -> recordRepository.insert(Record(!status, userId)).map { status } }
+                    instance<WorkService>()
+                            .checkIn(instance<UserProfile>().id)
                             .toPromise()
                             .then { render(json(mapOf("status" to it))) }
                 }
