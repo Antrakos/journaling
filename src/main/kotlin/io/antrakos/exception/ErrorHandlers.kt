@@ -15,6 +15,7 @@ class ClientErrorHandler(val resourceBundle: ResourceBundle) : ClientErrorHandle
             in (1..Error.values().size) -> Error.values()[statusCode]
             401 -> Error.UNAUTHORIZED
             403 -> Error.FORBIDDEN
+            404 -> Error.NOT_FOUND
             else -> Error.DEFAULT
         }
         context.response.apply {
