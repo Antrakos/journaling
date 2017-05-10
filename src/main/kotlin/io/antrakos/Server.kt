@@ -12,7 +12,6 @@ import com.mongodb.client.model.IndexOptions
 import com.mongodb.client.model.Indexes
 import com.mongodb.rx.client.MongoClient
 import com.mongodb.rx.client.MongoClients
-import com.mongodb.rx.client.MongoCollection
 import com.mongodb.rx.client.MongoDatabase
 import io.antrakos.exception.Error
 import io.antrakos.repository.impl.RecordRepository
@@ -21,7 +20,6 @@ import io.antrakos.security.BasicAuthenticator
 import io.antrakos.service.*
 import io.antrakos.web.JacksonCodecProvider
 import org.bson.codecs.configuration.CodecRegistries
-import org.bson.codecs.configuration.CodecRegistry
 import org.pac4j.core.profile.UserProfile
 import org.pac4j.http.client.direct.DirectBasicAuthClient
 import org.pac4j.http.credentials.authenticator.UsernamePasswordAuthenticator
@@ -46,34 +44,34 @@ object Server {
     @JvmStatic
     fun main(args: Array<String>) {
         val kodein = Kodein {
-            bind<ObjectMapper>() with singleton {
+            bind() from singleton {
                 ObjectMapper().findAndRegisterModules()
                         .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
                         .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
             }
-            bind<JacksonCodecProvider>() with singleton { JacksonCodecProvider(instance()) }
-            bind<CodecRegistry>() with singleton {
+            bind() from singleton { JacksonCodecProvider(instance()) }
+            bind() from singleton {
                 CodecRegistries.fromRegistries(
                         MongoClients.getDefaultCodecRegistry(),
                         CodecRegistries.fromProviders(instance<JacksonCodecProvider>())
                 )
             }
-            bind<MongoClient>() with singleton { MongoClients.create() }
-            bind<MongoDatabase>() with singleton { instance<MongoClient>().getDatabase("journaling").withCodecRegistry(instance()) }
-            bind<MongoCollection<Record>>() with singleton { instance<MongoDatabase>().getCollection("record", Record::class.java) }
-            bind<MongoCollection<User>>() with singleton { instance<MongoDatabase>().getCollection("user", User::class.java).apply { createIndex(Indexes.ascending("username"), IndexOptions().unique(true)).toBlocking().subscribe() } }
-            bind<RecordRepository>() with singleton { RecordRepository(instance()) }
-            bind<UserRepository>() with singleton { UserRepository(instance()) }
+            bind() from singleton { MongoClients.create() }
+            bind() from singleton { instance<MongoClient>().getDatabase("journaling").withCodecRegistry(instance()) }
+            bind() from singleton { instance<MongoDatabase>().getCollection("record", Record::class.java) }
+            bind() from singleton { instance<MongoDatabase>().getCollection("user", User::class.java).apply { createIndex(Indexes.ascending("username"), IndexOptions().unique(true)).toBlocking().subscribe() } }
+            bind() from singleton { RecordRepository(instance()) }
+            bind() from singleton { UserRepository(instance()) }
             bind<PasswordEncoder>() with singleton { BasicSaltedSha512PasswordEncoder("salt") }
             bind<UsernamePasswordAuthenticator>() with singleton { BasicAuthenticator(instance(), instance()) }
-            bind<ResourceBundle>() with singleton { ResourceBundle.getBundle("messages", Locale.ENGLISH) }
+            bind() from singleton { ResourceBundle.getBundle("messages", Locale.ENGLISH) }
             bind<ClientErrorHandler>() with singleton { io.antrakos.exception.ClientErrorHandler(instance()) }
             bind<ServerErrorHandler>() with singleton { io.antrakos.exception.ServerErrorHandler() }
-            bind<DayStatisticsService>() with singleton { DayStatisticsService(instance()) }
-            bind<MonthStatisticsService>() with singleton { MonthStatisticsService(instance()) }
-            bind<AuthenticationService>() with singleton { AuthenticationService(instance(), instance()) }
-            bind<WorkService>() with singleton { WorkService(instance()) }
-            bind<UserService>() with singleton { UserService(instance(), instance()) }
+            bind() from singleton { DayStatisticsService(instance()) }
+            bind() from singleton { MonthStatisticsService(instance()) }
+            bind() from singleton { AuthenticationService(instance(), instance()) }
+            bind() from singleton { WorkService(instance()) }
+            bind() from singleton { UserService(instance(), instance()) }
         }
 
         RxRatpack.initialize();
