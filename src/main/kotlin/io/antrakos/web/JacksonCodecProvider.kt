@@ -1,4 +1,4 @@
-package io.antrakos.repository
+package io.antrakos.web
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.antrakos.Entity

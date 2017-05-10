@@ -15,11 +15,11 @@ import com.mongodb.rx.client.MongoClients
 import com.mongodb.rx.client.MongoCollection
 import com.mongodb.rx.client.MongoDatabase
 import io.antrakos.exception.Error
-import io.antrakos.repository.JacksonCodecProvider
 import io.antrakos.repository.impl.RecordRepository
 import io.antrakos.repository.impl.UserRepository
 import io.antrakos.security.BasicAuthenticator
 import io.antrakos.service.*
+import io.antrakos.web.JacksonCodecProvider
 import org.bson.codecs.configuration.CodecRegistries
 import org.bson.codecs.configuration.CodecRegistry
 import org.pac4j.core.profile.UserProfile
