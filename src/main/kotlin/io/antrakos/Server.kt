@@ -19,10 +19,7 @@ import io.antrakos.repository.JacksonCodecProvider
 import io.antrakos.repository.impl.RecordRepository
 import io.antrakos.repository.impl.UserRepository
 import io.antrakos.security.BasicAuthenticator
-import io.antrakos.service.AuthenticationService
-import io.antrakos.service.DayStatisticsService
-import io.antrakos.service.MonthStatisticsService
-import io.antrakos.service.WorkService
+import io.antrakos.service.*
 import org.bson.codecs.configuration.CodecRegistries
 import org.bson.codecs.configuration.CodecRegistry
 import org.pac4j.core.profile.UserProfile
@@ -76,6 +73,7 @@ object Server {
             bind<MonthStatisticsService>() with singleton { MonthStatisticsService(instance()) }
             bind<AuthenticationService>() with singleton { AuthenticationService(instance(), instance()) }
             bind<WorkService>() with singleton { WorkService(instance()) }
+            bind<UserService>() with singleton { UserService(instance(), instance()) }
         }
 
         RxRatpack.initialize();
@@ -106,6 +104,14 @@ object Server {
                                 .then { render(json(it)) }
                     }
                 }
+                Prefix("user") {
+                    Get(":id/status") {
+                        instance<UserService>()
+                                .getStatus(pathTokens["id"]!!)
+                                .toPromise()
+                                .then { render(json(it)) }
+                    }
+                }
                 all(RatpackPac4j.requireAuth(DirectBasicAuthClient::class.java))
                 Prefix("record") {
                     Get("daily/:date") {
@@ -126,6 +132,15 @@ object Server {
                             .checkIn(instance<UserProfile>().id)
                             .toPromise()
                             .then { render(json(mapOf("status" to it))) }
+                }
+                Prefix("user") {
+                    Get("search") {
+                        val username = request.queryParams["username"] ?: throw IllegalArgumentException("Username param is required")
+                        instance<UserService>()
+                                .searchByUsername(username)
+                                .toPromise()
+                                .then { render(json(it)) }
+                    }
                 }
             }
         }

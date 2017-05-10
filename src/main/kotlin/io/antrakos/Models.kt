@@ -14,6 +14,11 @@ data class User(val username: String, val password: String) : Entity()
 data class RecordDto(val status: Status, val time: LocalDateTime)
 data class DayStatistics(val time: Duration, val hours: BooleanArray, val day: LocalDate)
 data class MonthStatistics(val hours: Double, val totalHours: Long, val days: Array<DayStatistics>)
+data class UserDto(val username: String) : Entity() {
+    constructor(user: User) : this(user.username) {
+        this._id = user._id
+    }
+}
 
 fun Record.date(): LocalDateTime = ObjectId(this._id).date.toLocalDateTime()
 enum class Status {
