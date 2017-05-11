@@ -77,6 +77,7 @@ object Server {
         RxRatpack.initialize();
         serverStart {
             ServerConfig {
+                sysProps()
                 env()
             }
             GuiceRegistry {
