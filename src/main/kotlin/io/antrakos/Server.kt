@@ -32,6 +32,8 @@ import ratpack.jackson.Jackson.fromJson
 import ratpack.jackson.Jackson.json
 import ratpack.pac4j.RatpackPac4j
 import ratpack.rx.RxRatpack
+import ratpack.service.Service
+import ratpack.service.StartEvent
 import ratpack.session.SessionModule
 import java.time.LocalDate
 import java.util.*
@@ -74,7 +76,6 @@ object Server {
             bind() from singleton { UserService(instance(), instance()) }
         }
 
-        RxRatpack.initialize();
         serverStart {
             ServerConfig {
                 sysProps()
@@ -86,6 +87,11 @@ object Server {
                 bindInstance(ObjectMapper::class.java, kodein.instance())
                 bindInstance(ClientErrorHandler::class.java, kodein.instance())
                 bindInstance(ServerErrorHandler::class.java, kodein.instance())
+                bindInstance(object : Service {
+                    override fun onStart(event: StartEvent) {
+                        RxRatpack.initialize();
+                    }
+                })
             }
             Handlers {
                 all(RequestLogger.ncsa())
